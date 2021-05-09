@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <inttypes.h>
+#include <string.h>
 #include <arpa/inet.h>
 
 #include "main.h"
@@ -9,6 +10,7 @@
 #define HEADER_COUNT 7
 #define TIMESTAMP_LEN 24
 #define IP_ADDRESS_SIZE 2
+#define QUERY "query"
 
 int main(int argc, char* argv[]) {
 
@@ -34,27 +36,40 @@ int main(int argc, char* argv[]) {
         answer = get_answer();
         printf("%u %u %u %u ", answer->name, answer->type, answer->class, answer->ttl);
         for (int i = 0; i < answer->rd_length; i++) {
-            printf("%u:", answer->rd_data[i]);
+            printf("%x:", answer->rd_data[i]);
         }
-    }  
-  
-    int flag = 0;
-    fprintf(log_file, "%s %s is at ", get_time(), question->q_name);
-    for (int i = 0; i < answer->rd_length; i++) {
-        if (answer->rd_data[i]) {
-            fprintf(log_file, "%x", answer->rd_data[i]);
-            
-            if (i != answer->rd_length - 1)
-                fprintf(log_file, ":");
-        }
-        else if (!flag) {
-            fprintf(log_file, ":");
-            flag++;      
-	}  
-    } 
+    }
 
+    print_log(log_file, argv[1], question, answer);
     printf("\n");
     return 0;
+}
+
+void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
+    
+    fprintf(file, "%s ", get_time());
+    if (strcmp(QUERY, mode))
+        fprintf(file, "requested %s", question->q_name);
+    else {
+        fprintf(file, "%s is at ", question->q_name);
+        print_ip(file, answer);
+    }
+}
+
+void print_ip(FILE* file, answer_t* answer) {
+    
+    int flag = 0;
+    for (int i = 0; i < answer->rd_length; i++) {
+        if (answer->rd_data[i]) {
+            fprintf(file, "%x", answer->rd_data[i]);
+
+            if (i != answer->rd_length - 1 || flag == 1)
+                fprintf(file, ":");
+        }
+        else if (!flag)
+            fprintf(file, ":");
+        flag++;
+    }
 }
 
 header_t* get_header() {
