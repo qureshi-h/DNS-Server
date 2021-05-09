@@ -66,9 +66,10 @@ void print_ip(FILE* file, answer_t* answer) {
             if (i != answer->rd_length - 1 || flag == 1)
                 fprintf(file, ":");
         }
-        else if (!flag)
+        else if (!flag) {
             fprintf(file, ":");
-        flag++;
+            flag++;
+	}
     }
 }
 
