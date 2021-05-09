@@ -8,6 +8,7 @@
 
 #define HEADER_COUNT 7
 #define TIMESTAMP_LEN 24
+#define IP_ADDRESS_SIZE 2
 
 int main(int argc, char* argv[]) {
 
@@ -22,11 +23,28 @@ int main(int argc, char* argv[]) {
     printf("%u ", header->ns_count);
     printf("%u \n", header->ar_count);
 
+    question_t* question = NULL;
     if (header->qd_count) {
-        question_t* question = get_question();
+        question = get_question();
         printf("%s %u %u\n", question->q_name, question->q_type, question->q_class);
     }
 
+    answer_t* answer = NULL;
+    if (header->an_count) {
+        answer = get_answer();
+        printf("%u %u %u %u ", answer->name, answer->type, answer->class, answer->ttl);
+        for (int i = 0; i < answer->rd_length; i++) {
+            printf("%x:", answer->rd_data[i]);
+        }
+    }
+
+    fprintf(log_file, "%s %s is at ", get_time(), question->q_name);
+    for (int i = 0; i < answer->rd_length; i++) {
+        fprintf(log_file, "%x", answer->rd_data[i]);
+        if (i != answer->rd_length - 1) fprintf(log_file, ":");
+    }
+
+    printf("\n");
     return 0;
 }
 
@@ -77,6 +95,30 @@ question_t* get_question() {
     question->q_class = ntohs(question->q_class);
 
     return question;
+}
+
+answer_t* get_answer() {
+
+    answer_t* answer = (answer_t*)malloc(sizeof(*answer));
+    
+    fread(&(answer->name), sizeof(answer->name), 1, stdin);
+    answer->name = ntohs(answer->name);
+    fread(&(answer->type), sizeof(answer->type), 1, stdin);
+    answer->type = ntohs(answer->type);
+    fread(&(answer->class), sizeof(answer->class), 1, stdin);
+    answer->class = ntohs(answer->class);
+    fread(&(answer->ttl), sizeof(answer->ttl), 1, stdin);
+    answer->ttl = ntohs(answer->ttl);
+    fread(&(answer->rd_length), sizeof(answer->rd_length), 1, stdin);
+    answer->rd_length = ntohs(answer->rd_length) / IP_ADDRESS_SIZE;
+
+    answer->rd_data = (uint16_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
+    fread(answer->rd_data, sizeof(*(answer->rd_data)), answer->rd_length, stdin);
+    for (int i = 0; i < answer->rd_length; i++) {
+        answer->rd_data[i] = ntohs(answer->rd_data[i]);
+    }
+
+    return answer;
 }
 
 char* get_time() {
