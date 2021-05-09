@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
         answer = get_answer();
         printf("%u %u %u %u ", answer->name, answer->type, answer->class, answer->ttl);
         for (int i = 0; i < answer->rd_length; i++) {
-            printf("%u:", answer->rd_data[i]);
+            printf("%x:", answer->rd_data[i]);
         }
     }
 
@@ -47,13 +47,15 @@ int main(int argc, char* argv[]) {
 
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
     
-    fprintf(file, "% s", get_time());
-    if (strcmp(QUERY, mode))
+    fprintf(file, "%s ", get_time());
+    if (!strcmp(QUERY, mode))
         fprintf(file, "requested %s", question->q_name);
     else {
         fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
     }
+
+    fflush(file);
 }
 
 void print_ip(FILE* file, answer_t* answer) {
@@ -63,13 +65,16 @@ void print_ip(FILE* file, answer_t* answer) {
         if (answer->rd_data[i]) {
             fprintf(file, "%x", answer->rd_data[i]);
 
-            if (i != answer->rd_length - 1 || flag == 1)
+            if (i != answer->rd_length - 1)
                 fprintf(file, ":");
         }
-        else if (!flag)
+        else if (!flag) {
             fprintf(file, ":");
-        flag++;
+            flag++;
+	}
     }
+    
+    fflush(file);
 }
 
 header_t* get_header() {
@@ -151,8 +156,9 @@ char* get_time() {
     struct tm* tm_info = localtime(&timer);
     char* timestamp = (char*)malloc(sizeof(*timestamp) * (TIMESTAMP_LEN + 1));
 
-    strftime(timestamp, TIMESTAMP_LEN + 1, "%Y-%m-%dT%H:%M:%S+0000", tm_info);
+    strftime(timestamp, TIMESTAMP_LEN + 1, "%FT%T%z", tm_info);
     return timestamp;
 
 }
+
 

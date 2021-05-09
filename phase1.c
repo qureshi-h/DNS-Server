@@ -54,6 +54,8 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
         fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
     }
+
+    fflush(file);
 }
 
 void print_ip(FILE* file, answer_t* answer) {
@@ -71,6 +73,8 @@ void print_ip(FILE* file, answer_t* answer) {
             flag++;
 	}
     }
+    
+    fflush(file);
 }
 
 header_t* get_header() {
@@ -152,8 +156,9 @@ char* get_time() {
     struct tm* tm_info = localtime(&timer);
     char* timestamp = (char*)malloc(sizeof(*timestamp) * (TIMESTAMP_LEN + 1));
 
-    strftime(timestamp, TIMESTAMP_LEN + 1, "%Y-%m-%dT%H:%M:%S+0000", tm_info);
+    strftime(timestamp, TIMESTAMP_LEN + 1, "%FT%T%z", tm_info);
     return timestamp;
 
 }
+
 
