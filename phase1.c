@@ -36,13 +36,22 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < answer->rd_length; i++) {
             printf("%u:", answer->rd_data[i]);
         }
-    }
-
+    }  
+  
+    int flag = 0;
     fprintf(log_file, "%s %s is at ", get_time(), question->q_name);
     for (int i = 0; i < answer->rd_length; i++) {
-        fprintf(log_file, "%x", answer->rd_data[i]);
-        if (i != answer->rd_length - 1) fprintf(log_file, ":");
-    }
+        if (answer->rd_data[i]) {
+            fprintf(log_file, "%x", answer->rd_data[i]);
+            
+            if (i != answer->rd_length - 1)
+                fprintf(log_file, ":");
+        }
+        else if (!flag) {
+            fprintf(log_file, ":");
+            flag++;      
+	}  
+    } 
 
     printf("\n");
     return 0;
