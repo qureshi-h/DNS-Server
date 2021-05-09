@@ -32,4 +32,4 @@ format:
 	clang-format -i *.c *.h
 
 clean:
-	rm -f $(BIN_PHASE2) *.o
+	rm -f $(BIN_PHASE1) $(BIN_PHASE2) *.o dns_svr.log
