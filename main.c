@@ -50,7 +50,7 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
     fprintf(file, "%s ", get_time());
     if (!strcmp(QUERY, mode))
         fprintf(file, "requested %s", question->q_name);
-    else {
+    else if (answer) {
         fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
     }
