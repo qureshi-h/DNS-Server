@@ -20,22 +20,13 @@ int main(int argc, char* argv[]) {
     printf("%u ", header->qd_count);
     printf("%u ", header->an_count);
     printf("%u ", header->ns_count);
-    printf("%u ", header->ar_count);
+    printf("%u \n", header->ar_count);
 
-
-    fprintf(log_file, "%s ", get_time());
-    uint8_t label_size;
-    char* label;
-
-    fread(&label_size, sizeof(label_size), 1, stdin);
-    while (label_size) {
-
-        label = (char*)malloc(sizeof(*label) * (label_size + 1));
-        fread(label, sizeof(*label), label_size, stdin);
-        label[label_size] = '\0';
-        printf("%s.", label);
-        fread(&label_size, sizeof(label_size), 1, stdin);
+    if (header->qd_count) {
+        question_t* question = get_question();
+        printf("%s %u %u\n", question->q_name, question->q_type, question->q_class);
     }
+
     return 0;
 }
 
@@ -56,6 +47,38 @@ header_t* get_header() {
     return header;
 }
 
+question_t* get_question() {
+
+    uint8_t label_size;
+
+    question_t* question = (question_t*)malloc(sizeof(*question));
+    question->q_name = (char*)malloc(sizeof(*(question->q_name)));
+    question->q_name[0] = '\0';
+    question->q_name_size = 0;
+
+    fread(&label_size, sizeof(label_size), 1, stdin);
+    while (label_size) {
+
+        question->q_name = (char*)realloc(question->q_name,
+            sizeof(*(question->q_name)) * (label_size + question->q_name_size + 1));
+        fread(question->q_name + question->q_name_size, sizeof(*(question->q_name)),
+            label_size, stdin);
+        question->q_name_size += label_size + 1;
+        question->q_name[question->q_name_size - 1] = '.';
+        fread(&label_size, sizeof(label_size), 1, stdin);
+    }
+
+    question->q_name[question->q_name_size - 1] = '\0';
+
+    fread(&(question->q_type), sizeof(question->q_type), 1, stdin);
+    fread(&(question->q_class), sizeof(question->q_class), 1, stdin);
+    
+    question->q_type = ntohs(question->q_type);
+    question->q_class = ntohs(question->q_class);
+
+    return question;
+}
+
 char* get_time() {
 
     time_t timer = time(NULL);
@@ -66,3 +89,4 @@ char* get_time() {
     return timestamp;
 
 }
+
