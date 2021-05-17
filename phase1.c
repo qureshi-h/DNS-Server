@@ -61,7 +61,7 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 
 void print_ip(FILE* file, answer_t* answer) {
     
-    ip_address[INET6_ADDRSTRLEN];
+    char ip_address[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
 
     fprintf(file, "%s", ip_address);
