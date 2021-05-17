@@ -60,7 +60,7 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 }
 
 void print_ip(FILE* file, answer_t* answer) {
-    
+
     char ip_address[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
 
@@ -131,13 +131,13 @@ answer_t* get_answer() {
     fread(&(answer->ttl), sizeof(answer->ttl), 1, stdin);
     answer->ttl = ntohs(answer->ttl);
     fread(&(answer->rd_length), sizeof(answer->rd_length), 1, stdin);
-    answer->rd_length = ntohs(answer->rd_length) / IP_ADDRESS_SIZE;
+    answer->rd_length = ntohs(answer->rd_length);
 
-    answer->rd_data = (uint16_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
+    answer->rd_data = (uint8_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
     fread(answer->rd_data, sizeof(*(answer->rd_data)), answer->rd_length, stdin);
-    for (int i = 0; i < answer->rd_length; i++) {
+    /*for (int i = 0; i < answer->rd_length; i++) {
         answer->rd_data[i] = ntohs(answer->rd_data[i]);
-    }
+    }*/
 
     return answer;
 }
