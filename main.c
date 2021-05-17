@@ -4,13 +4,14 @@
 #include <inttypes.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "main.h"
 
 #define HEADER_COUNT 7
 #define TIMESTAMP_LEN 24
 #define IP_ADDRESS_SIZE 2
-#define QUERY "query"
+#define QUERY "query" 
 
 int main(int argc, char* argv[]) {
 
@@ -60,19 +61,24 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 
 void print_ip(FILE* file, answer_t* answer) {
     
-    int flag = 0;
-    for (int i = 0; i < answer->rd_length; i++) {
-        if (answer->rd_data[i]) {
-            fprintf(file, "%x", answer->rd_data[i]);
+ //   int flag = 0;
+ //   for (int i = 0; i < answer->rd_length; i++) {
+ //       if (answer->rd_data[i]) {
+ //           fprintf(file, "%x", answer->rd_data[i]);
 
-            if (i != answer->rd_length - 1)
-                fprintf(file, ":");
-        }
-        else if (!flag) {
-            fprintf(file, ":");
-            flag++;
-	}
-    }
+ //           if (i != answer->rd_length - 1)
+ //               fprintf(file, ":");
+ //       }
+ //       else if (!flag) {
+ //           fprintf(file, ":");
+ //           flag++;
+	//}
+ //   }
+
+    char ip_address[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
+
+    fprintf(file, "%s", ip_address);
     
     fflush(file);
 }
@@ -160,5 +166,3 @@ char* get_time() {
     return timestamp;
 
 }
-
-

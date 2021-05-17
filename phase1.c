@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "main.h"
 
@@ -11,7 +12,6 @@
 #define TIMESTAMP_LEN 24
 #define IP_ADDRESS_SIZE 2
 #define QUERY "query"
-#define AAAA 28
 
 int main(int argc, char* argv[]) {
 
@@ -47,14 +47,12 @@ int main(int argc, char* argv[]) {
 }
 
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
-
-    if (!strcmp(QUERY, mode)) {
-        fprintf(file, "%s requested %s\n", get_time(), question->q_name);
-        if (question->q_type != AAAA) 
-            fprintf(file, "%s unimplemented request\n", get_time());
-    }
+    
+    fprintf(file, "%s ", get_time());
+    if (!strcmp(QUERY, mode))
+        fprintf(file, "requested %s", question->q_name);
     else if (answer) {
-        fprintf(file, "%s %s is at ", get_time(), question->q_name);
+        fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
     }
 
@@ -62,21 +60,12 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 }
 
 void print_ip(FILE* file, answer_t* answer) {
+    
+    ip_address[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
 
-    int flag = 0;
-    for (int i = 0; i < answer->rd_length; i++) {
-        if (answer->rd_data[i]) {
-            fprintf(file, "%x", answer->rd_data[i]);
-
-            if (i != answer->rd_length - 1)
-                fprintf(file, ":");
-        }
-        else if (!flag) {
-            fprintf(file, ":");
-            flag++;
-        }
-    }
-    fprintf(file, "\n");
+    fprintf(file, "%s", ip_address);
+    
     fflush(file);
 }
 
@@ -122,7 +111,7 @@ question_t* get_question() {
 
     fread(&(question->q_type), sizeof(question->q_type), 1, stdin);
     fread(&(question->q_class), sizeof(question->q_class), 1, stdin);
-
+    
     question->q_type = ntohs(question->q_type);
     question->q_class = ntohs(question->q_class);
 
@@ -132,7 +121,7 @@ question_t* get_question() {
 answer_t* get_answer() {
 
     answer_t* answer = (answer_t*)malloc(sizeof(*answer));
-
+    
     fread(&(answer->name), sizeof(answer->name), 1, stdin);
     answer->name = ntohs(answer->name);
     fread(&(answer->type), sizeof(answer->type), 1, stdin);
@@ -163,5 +152,6 @@ char* get_time() {
     return timestamp;
 
 }
+
 
 
