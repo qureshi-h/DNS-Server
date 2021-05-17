@@ -2,52 +2,97 @@
 #include <stdlib.h>
 #include <time.h>
 #include <inttypes.h>
+#include <assert.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netdb.h>
+#include <unistd.h>
 
 #include "main.h"
 
-#define HEADER_COUNT 7
 #define TIMESTAMP_LEN 24
-#define IP_ADDRESS_SIZE 2
-#define QUERY "query" 
+#define QUERY "query"
+#define HEADER_SIZE_LENGTH 2
+#define PORT "8053"
 
 int main(int argc, char* argv[]) {
 
     FILE* log_file = fopen("./dns_svr.log", "w");
+    int pos = 0;
 
-    header_t* header = get_header();
-    printf("%d ", header->size);
-    printf("%u ", header->id);
-    printf("%u ", header->flags);
-    printf("%u ", header->qd_count);
-    printf("%u ", header->an_count);
-    printf("%u ", header->ns_count);
-    printf("%u \n", header->ar_count);
+    int socket_fd = get_socket_fd();
+    uint8_t* query = get_query(socket_fd);
+    header_t *header = get_header(query, &pos);
+    question_t *question = get_question(query, &pos);
 
-    question_t* question = NULL;
-    if (header->qd_count) {
-        question = get_question();
-        printf("%s %u %u\n", question->q_name, question->q_type, question->q_class);
-    }
-
-    answer_t* answer = NULL;
-    if (header->an_count) {
-        answer = get_answer();
-        printf("%u %u %u %u ", answer->name, answer->type, answer->class, answer->ttl);
-        for (int i = 0; i < answer->rd_length; i++) {
-            printf("%x:", answer->rd_data[i]);
-        }
-    }
-
-    print_log(log_file, argv[1], question, answer);
-    printf("\n");
     return 0;
 }
 
+int get_socket_fd() {
+
+    int status, socket_fd;
+    struct addrinfo hints, *servinfo;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if ((status = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    socket_fd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    if (socket_fd < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    int enable = 1;
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+        perror("setsockopt");
+        exit(1);
+    }
+
+    if (bind(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
+        perror("bind");
+        exit(EXIT_FAILURE);
+    }
+
+    freeaddrinfo(servinfo);
+    return socket_fd;
+}
+
+uint8_t* get_query(int socket_fd) {
+
+    if (listen(socket_fd, 5) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_storage client_address;
+    socklen_t client_addr_size = sizeof(client_address);
+    int new_socket = accept(socket_fd, (struct sockaddr*)&client_address, &client_addr_size);
+    if (new_socket < 0) {
+        perror("accept");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t query_length = 0;
+    assert(read(new_socket, &query_length, 2) == 2);
+
+    query_length -= 2;
+    printf("%u", query_length);
+    uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * query_length);
+    printf("%zd\n", read(new_socket, buffer, query_length));
+
+    return buffer;
+}
+
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
-    
+
     fprintf(file, "%s ", get_time());
     if (!strcmp(QUERY, mode))
         fprintf(file, "requested %s", question->q_name);
@@ -60,47 +105,30 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 }
 
 void print_ip(FILE* file, answer_t* answer) {
-    
- //   int flag = 0;
- //   for (int i = 0; i < answer->rd_length; i++) {
- //       if (answer->rd_data[i]) {
- //           fprintf(file, "%x", answer->rd_data[i]);
-
- //           if (i != answer->rd_length - 1)
- //               fprintf(file, ":");
- //       }
- //       else if (!flag) {
- //           fprintf(file, ":");
- //           flag++;
-	//}
- //   }
 
     char ip_address[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
 
     fprintf(file, "%s", ip_address);
-    
+
     fflush(file);
 }
 
-header_t* get_header() {
-
-    uint16_t buffer[HEADER_COUNT];
-    fread(buffer, sizeof(*buffer), HEADER_COUNT, stdin);
+header_t* get_header(uint8_t* buffer, int* pos) {
 
     header_t* header = (header_t*)malloc(sizeof(*header));
-    header->size = ntohs(buffer[0]);
-    header->id = ntohs(buffer[1]);
-    header->flags = ntohs(buffer[2]);
-    header->qd_count = ntohs(buffer[3]);
-    header->an_count = ntohs(buffer[4]);
-    header->ns_count = ntohs(buffer[5]);
-    header->ar_count = ntohs(buffer[6]);
+    header->id = ntohs(buffer[*pos]);
+    header->flags = ntohs(buffer[*pos += 2]);
+    header->qd_count = ntohs(buffer[*pos += 2]);
+    header->an_count = ntohs(buffer[*pos += 2]);
+    header->ns_count = ntohs(buffer[*pos += 2]);
+    header->ar_count = ntohs(buffer[*pos += 2]);
 
+    *pos += 2;
     return header;
 }
 
-question_t* get_question() {
+question_t* get_question(uint8_t* buffer, int* pos) {
 
     uint8_t label_size;
 
@@ -109,25 +137,26 @@ question_t* get_question() {
     question->q_name[0] = '\0';
     question->q_name_size = 0;
 
-    fread(&label_size, sizeof(label_size), 1, stdin);
+    label_size = buffer[(*pos)++];
     while (label_size) {
 
         question->q_name = (char*)realloc(question->q_name,
             sizeof(*(question->q_name)) * (label_size + question->q_name_size + 1));
-        fread(question->q_name + question->q_name_size, sizeof(*(question->q_name)),
-            label_size, stdin);
+        
+        memcpy(question->q_name + question->q_name_size, buffer + *pos, label_size);
+        *pos += label_size;
+        
         question->q_name_size += label_size + 1;
         question->q_name[question->q_name_size - 1] = '.';
-        fread(&label_size, sizeof(label_size), 1, stdin);
+        label_size = buffer[++(*pos)];
     }
 
     question->q_name[question->q_name_size - 1] = '\0';
 
-    fread(&(question->q_type), sizeof(question->q_type), 1, stdin);
-    fread(&(question->q_class), sizeof(question->q_class), 1, stdin);
-    
-    question->q_type = ntohs(question->q_type);
-    question->q_class = ntohs(question->q_class);
+    question->q_type = ntohs(buffer[*pos]);
+    question->q_class = ntohs(buffer[*pos += 2]);
+
+    *pos += 2;
 
     return question;
 }
@@ -135,7 +164,7 @@ question_t* get_question() {
 answer_t* get_answer() {
 
     answer_t* answer = (answer_t*)malloc(sizeof(*answer));
-    
+
     fread(&(answer->name), sizeof(answer->name), 1, stdin);
     answer->name = ntohs(answer->name);
     fread(&(answer->type), sizeof(answer->type), 1, stdin);
@@ -145,13 +174,10 @@ answer_t* get_answer() {
     fread(&(answer->ttl), sizeof(answer->ttl), 1, stdin);
     answer->ttl = ntohs(answer->ttl);
     fread(&(answer->rd_length), sizeof(answer->rd_length), 1, stdin);
-    answer->rd_length = ntohs(answer->rd_length) / IP_ADDRESS_SIZE;
+    answer->rd_length = ntohs(answer->rd_length);
 
-    answer->rd_data = (uint16_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
+    answer->rd_data = (uint8_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
     fread(answer->rd_data, sizeof(*(answer->rd_data)), answer->rd_length, stdin);
-    for (int i = 0; i < answer->rd_length; i++) {
-        answer->rd_data[i] = ntohs(answer->rd_data[i]);
-    }
 
     return answer;
 }
@@ -166,3 +192,4 @@ char* get_time() {
     return timestamp;
 
 }
+
