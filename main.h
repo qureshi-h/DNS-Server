@@ -35,7 +35,7 @@ typedef struct answer {
 char* get_time();
 header_t* get_header(uint16_t* buffer, int* pos);
 question_t* get_question(uint8_t* buffer, int* pos);
-answer_t* get_answer();
+answer_t* get_answer(uint16_t* buffer);
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer);
 void print_ip(FILE* file, answer_t* answer);
 int get_client_socket();

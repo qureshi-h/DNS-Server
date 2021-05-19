@@ -13,6 +13,7 @@
 
 #define TIMESTAMP_LEN 24
 #define QUERY "query"
+#define RESPONSE "response"
 #define HEADER_SIZE_LENGTH 2
 #define PORT "8053"
 #define MAX_MSG_SIZE 512
@@ -23,27 +24,46 @@ int main(int argc, char* argv[]) {
     FILE* log_file = fopen("./dns_svr.log", "w");
     int pos = 0, client_socket_fd;
 
+    uint8_t* query;
+    header_t* header;
+    question_t* question;
+    uint8_t buffer[MAX_MSG_SIZE];
+
     int socket_fd = get_client_socket();
-    uint8_t* query = get_query(socket_fd, &client_socket_fd);
-    header_t *header = get_header((uint16_t*)query, &pos);
-    question_t *question = get_question(query, &pos);
+    int server_socket_fd = get_server_socket(argv[1], argv[2]);
 
-    printf("%s\n", question->q_name);
-    if (question->q_type == QUAD_A) {
-        print_log(log_file, QUERY, question, NULL);
-    }
-    else {
-        print_log(log_file, "unimplemented", NULL, NULL);
-    }
-    write(client_socket_fd, query, header->size);
-    //int server_socket_fd = get_server_socket(argv[1], argv[2]);
-    //assert(send(server_socket_fd, query, header->size, 0) == header->size);
-    //printf("sent\n");
-    //char buffer[MAX_MSG_SIZE];
-    //uint16_t bytes_read = read(server_socket_fd, buffer, 52);
-    //printf("%u\n", bytes_read);
-    //assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
+    while (1) {
 
+        query = get_query(socket_fd, &client_socket_fd);
+        header = get_header((uint16_t*)query, &pos);
+        question = get_question(query, &pos);
+
+        printf("%s\n", question->q_name);
+        if (question->q_type == QUAD_A) {
+            print_log(log_file, QUERY, question, NULL);
+        }
+        else {
+            print_log(log_file, "unimplemented", NULL, NULL);
+        }
+
+        printf("header size %u\n", header->size);
+        assert(write(server_socket_fd, query, header->size) == header->size);
+        printf("sent\n");
+        
+        uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
+        printf("%u\n", bytes_read);
+        assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
+
+        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+        if (answer->type == QUAD_A) {
+            print_log(log_file, RESPONSE, question, answer);
+        }
+        else {
+            continue;
+        }
+        close(client_socket_fd);
+    }
+    
     return 0;
 }
 
@@ -97,17 +117,16 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
         perror("accept");
         exit(EXIT_FAILURE);
     }
-	printf("%d %d 1\n", socket_fd, *new_socket);
+
     uint16_t* buffer = (uint16_t*)malloc(sizeof(*buffer));
     assert(read(*new_socket, buffer, 2) == 2);
 
     uint16_t size = ntohs(*buffer);
 
     buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (size / 2));
-    assert(read(*new_socket, buffer + 1, size - 2) == size - 2);
+    printf("%zd read", read(*new_socket, buffer + 1, 1000));
 
     return (uint8_t*)buffer;
-
 }
 
 int get_server_socket(char* nodename, char* server_port) {
@@ -140,8 +159,8 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
 
     fprintf(file, "%s ", get_time());
     if (!strcmp(QUERY, mode))
-        fprintf(file, "requested %s", question->q_name);
-    else if (answer) {
+        fprintf(file, "requested %s\n", question->q_name);
+    else if (!strcmp(RESPONSE, mode)) {
         fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
     }
@@ -157,15 +176,14 @@ void print_ip(FILE* file, answer_t* answer) {
     char ip_address[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, answer->rd_data, ip_address, sizeof(ip_address));
 
-    fprintf(file, "%s", ip_address);
-
+    fprintf(file, "%s\n", ip_address);
     fflush(file);
 }
 
 header_t* get_header(uint16_t* buffer, int* pos) {
 
     header_t* header = (header_t*)malloc(sizeof(*header));
-    header->size = ntohs(buffer[*pos]);
+    header->size = buffer[*pos];
     header->id = ntohs(buffer[++(*pos)]);
     header->flags = ntohs(buffer[(++(*pos))]);
     header->qd_count = ntohs(buffer[(++(*pos))]);
@@ -207,27 +225,22 @@ question_t* get_question(uint8_t* buffer, int* pos) {
     question->q_class = ntohs(*(uint16_t*)(buffer + (*pos += 2)));
 
     *pos += 2;
-
     return question;
 }
 
-answer_t* get_answer() {
+answer_t* get_answer(uint16_t* buffer) {
 
+    int pos = 0;
     answer_t* answer = (answer_t*)malloc(sizeof(*answer));
 
-    fread(&(answer->name), sizeof(answer->name), 1, stdin);
-    answer->name = ntohs(answer->name);
-    fread(&(answer->type), sizeof(answer->type), 1, stdin);
-    answer->type = ntohs(answer->type);
-    fread(&(answer->class), sizeof(answer->class), 1, stdin);
-    answer->class = ntohs(answer->class);
-    fread(&(answer->ttl), sizeof(answer->ttl), 1, stdin);
-    answer->ttl = ntohs(answer->ttl);
-    fread(&(answer->rd_length), sizeof(answer->rd_length), 1, stdin);
-    answer->rd_length = ntohs(answer->rd_length);
-
+    answer->name = ntohs(buffer[pos]);
+    answer->type = ntohs(buffer[++pos]);
+    answer->class = ntohs(buffer[++pos]);
+    answer->ttl = ntohl(*(uint32_t*)(buffer + pos + 1));
+    answer->rd_length = ntohs(buffer[pos += 3]);
+	printf("%d %u %u\n", pos, answer->type, answer->rd_length);
     answer->rd_data = (uint8_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
-    fread(answer->rd_data, sizeof(*(answer->rd_data)), answer->rd_length, stdin);
+    memcpy(answer->rd_data, buffer + pos + 1, answer->rd_length);
 
     return answer;
 }
@@ -240,6 +253,5 @@ char* get_time() {
 
     strftime(timestamp, TIMESTAMP_LEN + 1, "%FT%T%z", tm_info);
     return timestamp;
-
 }
 
