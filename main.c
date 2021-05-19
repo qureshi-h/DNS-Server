@@ -22,7 +22,7 @@
 int main(int argc, char* argv[]) {
 
     FILE* log_file = fopen("./dns_svr.log", "w");
-    int pos, client_socket_fd;
+    int pos, temp_pos, client_socket_fd;
 
     uint8_t* query;
     header_t* header;
@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
         header = get_header((uint16_t*)query, &pos);
         question = get_question(query, &pos);
 
-        printf("%p %p\n", query, header);
         printf("%s\n", question->q_name);
         
         server_socket_fd = get_server_socket(argv[1], argv[2]);
@@ -59,13 +58,17 @@ int main(int argc, char* argv[]) {
         printf("%u\n", bytes_read);
         assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
 
+        temp_pos = 0;
+        header = get_header((uint16_t*)query, &temp_pos);
         answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-        if (answer->type == QUAD_A) {
+        if (answer->type == QUAD_A && header->an_count) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
             continue;
         }
+
+        close(server_socket_fd);
         close(client_socket_fd);
     }
     
