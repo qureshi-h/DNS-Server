@@ -24,20 +24,18 @@ int main(int argc, char* argv[]) {
 
     int client_socket_fd = get_client_socket();
     uint8_t* query = get_query(client_socket_fd);
-    header_t *header = get_header(query, &pos);
+    header_t *header = get_header((uint16_t*)query, &pos);
     question_t *question = get_question(query, &pos);
-   
+
     printf("%s\n", question->q_name);
 
     int server_socket_fd = get_server_socket(argv[1], argv[2]);
     assert(send(server_socket_fd, query, sizeof(query), 0) == sizeof(query));
-
     printf("sent\n");
-
     char buffer[MAX_MSG_SIZE];
     uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
-    printf("read");
-    printf("%u", bytes_read);
+    printf("%u\n", bytes_read);
+    assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
 
 
     return 0;
@@ -94,16 +92,16 @@ uint8_t* get_query(int socket_fd) {
         exit(EXIT_FAILURE);
     }
 
-    uint16_t query_length = 0;
-    assert(read(new_socket, &query_length, 2) == 2);
-    
-    query_length = ntohs(query_length);
+    uint16_t* buffer = (uint16_t*)malloc(sizeof(*buffer));
+    assert(read(new_socket, buffer, 2) == 2);
 
-    query_length -= 2;
-    uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * query_length);
-    assert(read(new_socket, buffer, query_length) == query_length);
+    *buffer = ntohs(*buffer);
 
-    return buffer;
+    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (*buffer / 2));
+    assert(read(new_socket, buffer + 1, *buffer - 2) == *buffer - 2);
+
+    return (uint8_t*)buffer;
+
 }
 
 int get_server_socket(char* nodename, char* server_port) {
@@ -113,7 +111,7 @@ int get_server_socket(char* nodename, char* server_port) {
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_socktype = SOCK_STREAM;
 
     if ((status = getaddrinfo(nodename, server_port, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
@@ -126,7 +124,7 @@ int get_server_socket(char* nodename, char* server_port) {
         exit(EXIT_FAILURE);
     }
 
-    connect(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen);
+    printf("connection %d \n", connect(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen));
 
     freeaddrinfo(servinfo);
     return socket_fd;
@@ -155,17 +153,19 @@ void print_ip(FILE* file, answer_t* answer) {
     fflush(file);
 }
 
-header_t* get_header(uint8_t* buffer, int* pos) {
+header_t* get_header(uint16_t* buffer, int* pos) {
 
     header_t* header = (header_t*)malloc(sizeof(*header));
-    header->id = ntohs(buffer[*pos]);
-    header->flags = ntohs(buffer[*pos += 2]);
-    header->qd_count = ntohs(buffer[*pos += 2]);
-    header->an_count = ntohs(buffer[*pos += 2]);
-    header->ns_count = ntohs(buffer[*pos += 2]);
-    header->ar_count = ntohs(buffer[*pos += 2]);
+    header->size = ntohs(buffer[*pos]);
+    header->id = ntohs(buffer[++(*pos)]);
+    header->flags = ntohs(buffer[(++(*pos))]);
+    header->qd_count = ntohs(buffer[(++(*pos))]);
+    header->an_count = ntohs(buffer[++(*pos)]);
+    header->ns_count = ntohs(buffer[++(*pos)]);
+    header->ar_count = ntohs(buffer[++(*pos)]);
 
-    *pos += 2;
+    ++(*pos);
+    *pos *= 2;
     return header;
 }
 
@@ -194,8 +194,8 @@ question_t* get_question(uint8_t* buffer, int* pos) {
 
     question->q_name[question->q_name_size - 1] = '\0';
 
-    question->q_type = ntohs(buffer[*pos]);
-    question->q_class = ntohs(buffer[*pos += 2]);
+    question->q_type = ntohs(((uint16_t*)buffer)[*pos / 2]);
+    question->q_class = ntohs(((uint16_t*)buffer)[(*pos += 2) / 2]);
 
     *pos += 2;
 

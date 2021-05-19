@@ -5,6 +5,7 @@
 
 typedef struct header {
 
+    uint16_t size;
     uint16_t id;
     uint16_t flags;
     uint16_t qd_count;
@@ -32,7 +33,7 @@ typedef struct answer {
 } answer_t;
 
 char* get_time();
-header_t* get_header(uint8_t* buffer, int* pos);
+header_t* get_header(uint16_t* buffer, int* pos);
 question_t* get_question(uint8_t* buffer, int* pos);
 answer_t* get_answer();
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer);
