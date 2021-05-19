@@ -15,21 +15,35 @@
 #define QUERY "query"
 #define HEADER_SIZE_LENGTH 2
 #define PORT "8053"
+#define MAX_MSG_SIZE 512
 
 int main(int argc, char* argv[]) {
 
     FILE* log_file = fopen("./dns_svr.log", "w");
     int pos = 0;
 
-    int socket_fd = get_socket_fd();
-    uint8_t* query = get_query(socket_fd);
+    int client_socket_fd = get_client_socket();
+    uint8_t* query = get_query(client_socket_fd);
     header_t *header = get_header(query, &pos);
     question_t *question = get_question(query, &pos);
+   
+    printf("%s\n", question->q_name);
+
+    int server_socket_fd = get_server_socket(argv[1], argv[2]);
+    assert(send(server_socket_fd, query, sizeof(query), 0) == sizeof(query));
+
+    printf("sent\n");
+
+    char buffer[MAX_MSG_SIZE];
+    uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
+    printf("read");
+    printf("%u", bytes_read);
+
 
     return 0;
 }
 
-int get_socket_fd() {
+int get_client_socket() {
 
     int status, socket_fd;
     struct addrinfo hints, *servinfo;
@@ -82,13 +96,40 @@ uint8_t* get_query(int socket_fd) {
 
     uint16_t query_length = 0;
     assert(read(new_socket, &query_length, 2) == 2);
+    
+    query_length = ntohs(query_length);
 
     query_length -= 2;
-    printf("%u", query_length);
     uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * query_length);
-    printf("%zd\n", read(new_socket, buffer, query_length));
+    assert(read(new_socket, buffer, query_length) == query_length);
 
     return buffer;
+}
+
+int get_server_socket(char* nodename, char* server_port) {
+
+    int status, socket_fd;
+    struct addrinfo hints, * servinfo;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    if ((status = getaddrinfo(nodename, server_port, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    socket_fd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    if (socket_fd < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    connect(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen);
+
+    freeaddrinfo(servinfo);
+    return socket_fd;
 }
 
 void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
