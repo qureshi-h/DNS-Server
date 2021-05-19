@@ -22,7 +22,7 @@
 int main(int argc, char* argv[]) {
 
     FILE* log_file = fopen("./dns_svr.log", "w");
-    int pos = 0, client_socket_fd;
+    int pos, client_socket_fd;
 
     uint8_t* query;
     header_t* header;
@@ -30,15 +30,20 @@ int main(int argc, char* argv[]) {
     uint8_t buffer[MAX_MSG_SIZE];
 
     int socket_fd = get_client_socket();
-    int server_socket_fd = get_server_socket(argv[1], argv[2]);
+    int server_socket_fd;
 
     while (1) {
+
+        pos = 0;
 
         query = get_query(socket_fd, &client_socket_fd);
         header = get_header((uint16_t*)query, &pos);
         question = get_question(query, &pos);
 
+        printf("%p %p\n", query, header);
         printf("%s\n", question->q_name);
+        
+        server_socket_fd = get_server_socket(argv[1], argv[2]);
         if (question->q_type == QUAD_A) {
             print_log(log_file, QUERY, question, NULL);
         }
@@ -165,7 +170,7 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
         print_ip(file, answer);
     }
     else {
-        fprintf(file, "unimplemented request");
+        fprintf(file, "unimplemented request\n");
     }
 
     fflush(file);
@@ -230,15 +235,15 @@ question_t* get_question(uint8_t* buffer, int* pos) {
 
 answer_t* get_answer(uint16_t* buffer) {
 
-    int pos = 0;
     answer_t* answer = (answer_t*)malloc(sizeof(*answer));
 
+    int pos = 0;
     answer->name = ntohs(buffer[pos]);
     answer->type = ntohs(buffer[++pos]);
     answer->class = ntohs(buffer[++pos]);
-    answer->ttl = ntohl(*(uint32_t*)(buffer + pos + 1));
+    answer->ttl = ntohs(*(uint32_t*)(buffer + pos + 1));
     answer->rd_length = ntohs(buffer[pos += 3]);
-	printf("%d %u %u\n", pos, answer->type, answer->rd_length);
+
     answer->rd_data = (uint8_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
     memcpy(answer->rd_data, buffer + pos + 1, answer->rd_length);
 
