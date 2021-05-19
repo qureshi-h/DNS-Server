@@ -16,27 +16,33 @@
 #define HEADER_SIZE_LENGTH 2
 #define PORT "8053"
 #define MAX_MSG_SIZE 512
+#define QUAD_A 28
 
 int main(int argc, char* argv[]) {
 
     FILE* log_file = fopen("./dns_svr.log", "w");
-    int pos = 0;
+    int pos = 0, client_socket_fd;
 
-    int client_socket_fd = get_client_socket();
-    uint8_t* query = get_query(client_socket_fd);
+    int socket_fd = get_client_socket();
+    uint8_t* query = get_query(socket_fd, &client_socket_fd);
     header_t *header = get_header((uint16_t*)query, &pos);
     question_t *question = get_question(query, &pos);
 
     printf("%s\n", question->q_name);
-
-    int server_socket_fd = get_server_socket(argv[1], argv[2]);
-    assert(send(server_socket_fd, query, sizeof(query), 0) == sizeof(query));
-    printf("sent\n");
-    char buffer[MAX_MSG_SIZE];
-    uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
-    printf("%u\n", bytes_read);
-    assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
-
+    if (question->q_type == QUAD_A) {
+        print_log(log_file, QUERY, question, NULL);
+    }
+    else {
+        print_log(log_file, "unimplemented", NULL, NULL);
+    }
+    write(client_socket_fd, query, header->size);
+    //int server_socket_fd = get_server_socket(argv[1], argv[2]);
+    //assert(send(server_socket_fd, query, header->size, 0) == header->size);
+    //printf("sent\n");
+    //char buffer[MAX_MSG_SIZE];
+    //uint16_t bytes_read = read(server_socket_fd, buffer, 52);
+    //printf("%u\n", bytes_read);
+    //assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
 
     return 0;
 }
@@ -77,7 +83,7 @@ int get_client_socket() {
     return socket_fd;
 }
 
-uint8_t* get_query(int socket_fd) {
+uint8_t* get_query(int socket_fd, int* new_socket) {
 
     if (listen(socket_fd, 5) < 0) {
         perror("listen");
@@ -86,19 +92,19 @@ uint8_t* get_query(int socket_fd) {
 
     struct sockaddr_storage client_address;
     socklen_t client_addr_size = sizeof(client_address);
-    int new_socket = accept(socket_fd, (struct sockaddr*)&client_address, &client_addr_size);
-    if (new_socket < 0) {
+    *new_socket = accept(socket_fd, (struct sockaddr*)&client_address, &client_addr_size);
+    if (*new_socket < 0) {
         perror("accept");
         exit(EXIT_FAILURE);
     }
-
+	printf("%d %d 1\n", socket_fd, *new_socket);
     uint16_t* buffer = (uint16_t*)malloc(sizeof(*buffer));
-    assert(read(new_socket, buffer, 2) == 2);
+    assert(read(*new_socket, buffer, 2) == 2);
 
-    *buffer = ntohs(*buffer);
+    uint16_t size = ntohs(*buffer);
 
-    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (*buffer / 2));
-    assert(read(new_socket, buffer + 1, *buffer - 2) == *buffer - 2);
+    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (size / 2));
+    assert(read(*new_socket, buffer + 1, size - 2) == size - 2);
 
     return (uint8_t*)buffer;
 
@@ -107,7 +113,7 @@ uint8_t* get_query(int socket_fd) {
 int get_server_socket(char* nodename, char* server_port) {
 
     int status, socket_fd;
-    struct addrinfo hints, * servinfo;
+    struct addrinfo hints, *servinfo;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -138,6 +144,9 @@ void print_log(FILE* file, char* mode, question_t* question, answer_t* answer) {
     else if (answer) {
         fprintf(file, "%s is at ", question->q_name);
         print_ip(file, answer);
+    }
+    else {
+        fprintf(file, "unimplemented request");
     }
 
     fflush(file);
@@ -189,13 +198,13 @@ question_t* get_question(uint8_t* buffer, int* pos) {
         
         question->q_name_size += label_size + 1;
         question->q_name[question->q_name_size - 1] = '.';
-        label_size = buffer[++(*pos)];
+        label_size = buffer[(*pos)++];
     }
 
     question->q_name[question->q_name_size - 1] = '\0';
 
-    question->q_type = ntohs(((uint16_t*)buffer)[*pos / 2]);
-    question->q_class = ntohs(((uint16_t*)buffer)[(*pos += 2) / 2]);
+    question->q_type = ntohs(*(uint16_t*)(buffer + *pos));
+    question->q_class = ntohs(*(uint16_t*)(buffer + (*pos += 2)));
 
     *pos += 2;
 
