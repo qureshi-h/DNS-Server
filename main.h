@@ -41,6 +41,6 @@ void print_ip(FILE* file, answer_t* answer);
 int get_client_socket();
 uint8_t* get_query(int socket_fd, int* new_socket);
 int get_server_socket(char* nodename, char* server_port);
-
+uint8_t get_r_code(uint8_t flags);
 #endif
 

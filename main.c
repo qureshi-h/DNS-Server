@@ -52,16 +52,17 @@ int main(int argc, char* argv[]) {
 
         printf("header size %u\n", header->size);
         assert(write(server_socket_fd, query, header->size) == header->size);
-        printf("sent\n");
         
         uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
-        printf("%u\n", bytes_read);
-        assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
+        printf("bytes %u\n", bytes_read);
+        send(client_socket_fd, buffer, bytes_read, 0);
 
         temp_pos = 0;
         header = get_header((uint16_t*)query, &temp_pos);
-        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-        if (answer->type == QUAD_A && header->an_count) {
+        printf("%u rcode\n", get_r_code(header->flags));
+	answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+	
+	if (answer->type == QUAD_A && header->an_count) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
@@ -132,7 +133,7 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     uint16_t size = ntohs(*buffer);
 
     buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (size / 2));
-    printf("%zd read", read(*new_socket, buffer + 1, 1000));
+    printf("%zd read\n", read(*new_socket, buffer + 1, 1000));
 
     return (uint8_t*)buffer;
 }
@@ -263,3 +264,7 @@ char* get_time() {
     return timestamp;
 }
 
+uint8_t get_r_code(uint8_t flags) {
+
+    return flags & 15;
+}
