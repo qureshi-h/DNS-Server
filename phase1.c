@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include "main.h"
+#include "phase1.h"
 
 #define HEADER_COUNT 7
 #define TIMESTAMP_LEN 24
