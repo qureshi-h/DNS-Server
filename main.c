@@ -58,12 +58,13 @@ int main(int argc, char* argv[]) {
         
         uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
         printf("bytes %u\n", bytes_read);
-        assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
+        send(client_socket_fd, buffer, bytes_read, 0);
 
         temp_pos = 0;
-        header = get_header((uint16_t*)query, &temp_pos);
+        header = get_header((uint16_t*)buffer, &temp_pos);
         answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-	if (answer->type == QUAD_A) {
+        
+	if (answer->type == QUAD_A && header->an_count) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
@@ -132,9 +133,9 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     assert(read(*new_socket, buffer, 2) == 2);
 
     uint16_t size = ntohs(*buffer);
-	printf("%u size\n", size);
-    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * 512);
-    printf("%zd read", read(*new_socket, buffer + 1, 1000));
+
+    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
+    printf("%zd read", read(*new_socket, buffer + 1, MAX_MSG_SIZE - 1));
 
     return (uint8_t*)buffer;
 }
