@@ -43,11 +43,14 @@ int main(int argc, char* argv[]) {
         printf("%s\n", question->q_name);
         
         server_socket_fd = get_server_socket(argv[1], argv[2]);
-        if (question->q_type == QUAD_A) {
-            print_log(log_file, QUERY, question, NULL);
-        }
-        else {
+        print_log(log_file, QUERY, question, NULL);
+       
+        if (question->q_type != QUAD_A) {
             print_log(log_file, "unimplemented", NULL, NULL);
+            query[4] = query[4] | 128;
+            query[5] = query[5] | 4;
+            assert(write(client_socket_fd, query, header->size) == header->size);
+            continue;
         }
 
         printf("header size %u\n", header->size);
@@ -55,14 +58,12 @@ int main(int argc, char* argv[]) {
         
         uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
         printf("bytes %u\n", bytes_read);
-        send(client_socket_fd, buffer, bytes_read, 0);
+        assert(send(client_socket_fd, buffer, bytes_read, 0) == bytes_read);
 
         temp_pos = 0;
         header = get_header((uint16_t*)query, &temp_pos);
-        printf("%u rcode\n", get_r_code(header->flags));
-	answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-	
-	if (answer->type == QUAD_A && header->an_count) {
+        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+        if (answer->type == QUAD_A && header->an_count) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
@@ -133,7 +134,7 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     uint16_t size = ntohs(*buffer);
 
     buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * (size / 2));
-    printf("%zd read\n", read(*new_socket, buffer + 1, 1000));
+    printf("%zd read", read(*new_socket, buffer + 1, 1000));
 
     return (uint8_t*)buffer;
 }
