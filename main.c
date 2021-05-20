@@ -38,11 +38,11 @@ int main(int argc, char* argv[]) {
 
         query = get_query(socket_fd, &client_socket_fd);
         header = get_header((uint16_t*)query, &pos);
+        question = get_question(query, &pos);
 
         printf("%s\n", question->q_name);
 
         server_socket_fd = get_server_socket(argv[1], argv[2]);
-        question = get_question(query, &pos);
         print_log(log_file, QUERY, question, NULL);
 
         if (question->q_type != QUAD_A) {
