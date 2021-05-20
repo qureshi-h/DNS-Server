@@ -47,8 +47,10 @@ int main(int argc, char* argv[]) {
 
         if (question->q_type != QUAD_A) {
             print_log(log_file, "unimplemented", NULL, NULL);
+	    printf("%u %u %u\n",header->id, query[4], query[5]);
             query[4] = query[4] | 128;
-            query[5] = query[5] | 4;
+            query[5] = 132;
+	    printf("%u %u\n", query[4], query[5]);
             write(client_socket_fd, query, header->size);
             close(server_socket_fd);
             close(client_socket_fd);
