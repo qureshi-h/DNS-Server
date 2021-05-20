@@ -14,10 +14,10 @@
 #define TIMESTAMP_LEN 24
 #define QUERY "query"
 #define RESPONSE "response"
-#define HEADER_SIZE_LENGTH 2
 #define PORT "8053"
 #define MAX_MSG_SIZE 512
 #define QUAD_A 28
+#define NUM_BYTES_HEADER 14
 
 int main(int argc, char* argv[]) {
 
@@ -38,18 +38,18 @@ int main(int argc, char* argv[]) {
 
         query = get_query(socket_fd, &client_socket_fd);
         header = get_header((uint16_t*)query, &pos);
-        question = get_question(query, &pos);
 
         printf("%s\n", question->q_name);
 
         server_socket_fd = get_server_socket(argv[1], argv[2]);
+        question = get_question(query, &pos);
         print_log(log_file, QUERY, question, NULL);
 
         if (question->q_type != QUAD_A) {
             print_log(log_file, "unimplemented", NULL, NULL);
             query[4] = query[4] | 128;
             query[5] = query[5] | 4;
-            assert(write(client_socket_fd, query, header->size) == header->size);
+            assert(write(client_socket_fd, query, NUM_BYTES_HEADER) == NUM_BYTES_HEADER);
             continue;
         }
 
@@ -133,7 +133,7 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     }
 
     uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * 2);
-    
+
     if (read(*new_socket, buffer, 2) != 2)
         assert(read(*new_socket, buffer + 1, 1));
 
@@ -143,8 +143,8 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * size);
 
     while (bytes_read != size) {
-        printf("%d ", bytes_read); 
-	bytes_read += read(*new_socket, buffer + bytes_read, size - bytes_read);
+        printf("%d ", bytes_read);
+        bytes_read += read(*new_socket, buffer + bytes_read, size - bytes_read);
     }
 
     return buffer;
@@ -277,7 +277,5 @@ char* get_time() {
 }
 
 uint8_t get_r_code(uint8_t flags) {
-
     return flags & 15;
 }
-
