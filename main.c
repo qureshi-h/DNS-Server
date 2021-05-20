@@ -140,7 +140,7 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
     
     while (bytes_read != size) {
-        bytes_read += read(*new_socket, buffer + 1, MAX_MSG_SIZE - 1);
+        bytes_read += read(*new_socket, buffer + 1 + bytes_read, MAX_MSG_SIZE - 1 - bytes_read);
     }
 
     return (uint8_t*)buffer;
