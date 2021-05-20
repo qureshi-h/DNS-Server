@@ -63,7 +63,8 @@ int main(int argc, char* argv[]) {
         temp_pos = 0;
         header = get_header((uint16_t*)query, &temp_pos);
         answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-        if (answer->type == QUAD_A && header->an_count) {
+        printf("%u %u\n", answer->type, header->an_count);
+	if (answer->type == QUAD_A) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
