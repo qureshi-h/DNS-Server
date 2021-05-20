@@ -50,6 +50,8 @@ int main(int argc, char* argv[]) {
             query[4] = query[4] | 128;
             query[5] = query[5] | 4;
             write(client_socket_fd, query, header->size);
+            close(server_socket_fd);
+            close(client_socket_fd);
             continue;
         }
 
@@ -63,15 +65,10 @@ int main(int argc, char* argv[]) {
         temp_pos = 0;
         header = get_header((uint16_t*)buffer, &temp_pos);
 
-        if (!header->an_count)
-            continue;
-
-        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-        if (answer->type == QUAD_A) {
-            print_log(log_file, RESPONSE, question, answer);
-        }
-        else {
-            continue;
+        if (header->an_count) {
+            answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+            if (answer->type == QUAD_A)
+                print_log(log_file, RESPONSE, question, answer);
         }
 
         close(server_socket_fd);
