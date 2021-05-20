@@ -157,12 +157,12 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     while (bytes_read != HEADER_SIZE_LENGTH)
         bytes_read += read(*new_socket, buffer + bytes_read, HEADER_SIZE_LENGTH - bytes_read);
 
-    uint16_t size = ntohs(*((uint16_t*)buffer));
-    buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
+    uint16_t size = ntohs(*((uint16_t*)buffer)) + HEADER_SIZE_LENGTH;
+    buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * size);
     assert(buffer);
 
-    while (bytes_read < size) {
-        bytes_read += read(*new_socket, buffer + bytes_read, MAX_MSG_SIZE);
+    while (bytes_read != size) {
+        bytes_read += read(*new_socket, buffer + bytes_read, size - bytes_read);
     }
     return buffer;
 }
