@@ -62,9 +62,12 @@ int main(int argc, char* argv[]) {
 
         temp_pos = 0;
         header = get_header((uint16_t*)buffer, &temp_pos);
-        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
         
-	if (answer->type == QUAD_A && header->an_count) {
+	if (!header->an_count)
+       	    continue;
+
+	answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+        if (answer->type == QUAD_A) {
             print_log(log_file, RESPONSE, question, answer);
         }
         else {
@@ -129,13 +132,16 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
         exit(EXIT_FAILURE);
     }
 
+    int bytes_read = 0;
     uint16_t* buffer = (uint16_t*)malloc(sizeof(*buffer));
     assert(read(*new_socket, buffer, 2) == 2);
 
     uint16_t size = ntohs(*buffer);
-
     buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
-    printf("%zd read", read(*new_socket, buffer + 1, MAX_MSG_SIZE - 1));
+    
+    while (bytes_read != size) {
+        bytes_read += read(*new_socket, buffer + 1, MAX_MSG_SIZE - 1);
+    }
 
     return (uint8_t*)buffer;
 }
