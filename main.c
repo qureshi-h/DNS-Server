@@ -76,6 +76,9 @@ int main(int argc, char* argv[]) {
         if (answer->type == QUAD_A) {
             print_log(log_file, RESPONSE, question, answer);
         }
+	else {
+	    continue;
+	}
         
 	close(server_socket_fd);
 	close(client_socket_fd);
