@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
             print_log(log_file, "unimplemented", NULL, NULL);
             query[4] = query[4] | 128;
             query[5] = query[5] | 4;
-            assert(write(client_socket_fd, query, NUM_BYTES_HEADER) == NUM_BYTES_HEADER);
+            write(client_socket_fd, query, header->size);
             continue;
         }
 
