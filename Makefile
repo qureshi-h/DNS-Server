@@ -21,7 +21,7 @@ $(BIN_PHASE2): main.c $(OBJ)
 	$(CC) -o $(BIN_PHASE2) main.c $(OBJ) $(COPT)
 
 $(BIN_PHASE1): phase1.c $(OBJ)
-	$(CC) -o $(BIN_PHASE1) phase1.c $(OBJ) $(COPT)
+	$(CC) -o $(BIN_PHASE1) phase1.c $(COPT)
 
 # Wildcard rule to make any  .o  file,
 # given a .c and .h file with the same leading filename component
