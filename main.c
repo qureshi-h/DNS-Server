@@ -41,10 +41,10 @@ int main(int argc, char* argv[]) {
         question = get_question(query, &pos);
 
         printf("%s\n", question->q_name);
-        
+
         server_socket_fd = get_server_socket(argv[1], argv[2]);
         print_log(log_file, QUERY, question, NULL);
-       
+
         if (question->q_type != QUAD_A) {
             print_log(log_file, "unimplemented", NULL, NULL);
             query[4] = query[4] | 128;
@@ -55,18 +55,18 @@ int main(int argc, char* argv[]) {
 
         printf("header size %u\n", header->size);
         assert(write(server_socket_fd, query, header->size) == header->size);
-        
+
         uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
         printf("bytes %u\n", bytes_read);
         send(client_socket_fd, buffer, bytes_read, 0);
 
         temp_pos = 0;
         header = get_header((uint16_t*)buffer, &temp_pos);
-        
-	if (!header->an_count)
-       	    continue;
 
-	answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+        if (!header->an_count)
+            continue;
+
+        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
         if (answer->type == QUAD_A) {
             print_log(log_file, RESPONSE, question, answer);
         }
@@ -77,14 +77,14 @@ int main(int argc, char* argv[]) {
         close(server_socket_fd);
         close(client_socket_fd);
     }
-    
+
     return 0;
 }
 
 int get_client_socket() {
 
     int status, socket_fd;
-    struct addrinfo hints, *servinfo;
+    struct addrinfo hints, * servinfo;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET6;
@@ -132,24 +132,28 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
         exit(EXIT_FAILURE);
     }
 
-    int bytes_read = 0;
-    uint16_t* buffer = (uint16_t*)malloc(sizeof(*buffer));
-    assert(read(*new_socket, buffer, 2) == 2);
-
-    uint16_t size = ntohs(*buffer);
-    buffer = (uint16_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
+    uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * 2);
     
+    if (read(*new_socket, buffer, 2) != 2)
+        assert(read(*new_socket, buffer + 1, 1));
+
+    int bytes_read = 2;
+    uint16_t size = ntohs(*((uint16_t*)buffer));
+    printf("size %u\n", size);
+    buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * size);
+
     while (bytes_read != size) {
-        bytes_read += read(*new_socket, buffer + 1 + bytes_read, MAX_MSG_SIZE - 1 - bytes_read);
+        printf("%d ", bytes_read); 
+	bytes_read += read(*new_socket, buffer + bytes_read, size - bytes_read);
     }
 
-    return (uint8_t*)buffer;
+    return buffer;
 }
 
 int get_server_socket(char* nodename, char* server_port) {
 
     int status, socket_fd;
-    struct addrinfo hints, *servinfo;
+    struct addrinfo hints, * servinfo;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -227,10 +231,10 @@ question_t* get_question(uint8_t* buffer, int* pos) {
 
         question->q_name = (char*)realloc(question->q_name,
             sizeof(*(question->q_name)) * (label_size + question->q_name_size + 1));
-        
+
         memcpy(question->q_name + question->q_name_size, buffer + *pos, label_size);
         *pos += label_size;
-        
+
         question->q_name_size += label_size + 1;
         question->q_name[question->q_name_size - 1] = '.';
         label_size = buffer[(*pos)++];
@@ -276,3 +280,4 @@ uint8_t get_r_code(uint8_t flags) {
 
     return flags & 15;
 }
+
