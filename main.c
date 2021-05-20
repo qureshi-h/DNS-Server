@@ -66,17 +66,20 @@ int main(int argc, char* argv[]) {
         printf("bytes %u\n", bytes_read);
         send(client_socket_fd, buffer, bytes_read, 0);
 
-        temp_pos = 0;
+	temp_pos = 0;
         header = get_header((uint16_t*)buffer, &temp_pos);
 
-        if (header->an_count) {
-            answer_t* answer = get_answer((uint16_t*)(buffer + pos));
-            if (answer->type == QUAD_A)
-                print_log(log_file, RESPONSE, question, answer);
-        }
+	if (!header->an_count)
+            continue;
 
-        close(server_socket_fd);
-        close(client_socket_fd);
+        answer_t* answer = get_answer((uint16_t*)(buffer + pos));
+        if (answer->type == QUAD_A) {
+            print_log(log_file, RESPONSE, question, answer);
+        }
+        
+	close(server_socket_fd);
+	close(client_socket_fd);
+
     }
     return 0;
 }
