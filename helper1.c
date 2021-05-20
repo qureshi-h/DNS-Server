@@ -9,7 +9,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include "helper1.h"
+#include "helper.h"
 
 /*
 Parse the buffer to extract the header elements into a header struct
@@ -17,6 +17,8 @@ Parse the buffer to extract the header elements into a header struct
 header_t* get_header(uint16_t* buffer, int* pos) {
 
     header_t* header = (header_t*)malloc(sizeof(*header));
+    assert(header);
+
     header->size = buffer[*pos];
     header->id = ntohs(buffer[++(*pos)]);
     header->flags = ntohs(buffer[(++(*pos))]);
@@ -38,7 +40,11 @@ question_t* get_question(uint8_t* buffer, int* pos) {
     uint8_t label_size;
 
     question_t* question = (question_t*)malloc(sizeof(*question));
+    assert(question);
+
     question->q_name = (char*)malloc(sizeof(*(question->q_name)));
+    assert(question->q_name);
+
     question->q_name[0] = '\0';
     question->q_name_size = 0;
 
@@ -47,6 +53,7 @@ question_t* get_question(uint8_t* buffer, int* pos) {
 
         question->q_name = (char*)realloc(question->q_name,
             sizeof(*(question->q_name)) * (label_size + question->q_name_size + 1));
+        assert(question->q_name);
 
         memcpy(question->q_name + question->q_name_size, buffer + *pos, label_size);
         *pos += label_size;
@@ -71,6 +78,7 @@ Parses the buffer to extract the question elements and stores them in a struct
 answer_t* get_answer(uint16_t* buffer) {
 
     answer_t* answer = (answer_t*)malloc(sizeof(*answer));
+    assert(answer);
 
     int pos = 0;
     answer->name = ntohs(buffer[pos]);
@@ -80,6 +88,7 @@ answer_t* get_answer(uint16_t* buffer) {
     answer->rd_length = ntohs(buffer[pos += 3]);
 
     answer->rd_data = (uint8_t*)malloc(sizeof(*(answer->rd_data)) * answer->rd_length);
+    assert(answer->rd_data);
     memcpy(answer->rd_data, buffer + pos + 1, answer->rd_length);
 
     return answer;

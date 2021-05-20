@@ -52,17 +52,17 @@ int main(int argc, char* argv[]) {
         print_log(log_file, QUERY, question, NULL);
 
         if (question->q_type != QUAD_A) {
-            
+
             print_log(log_file, "unimplemented", NULL, NULL);
-            
+
             query[QR_POS] &= 0x00;
             query[QR_POS] ^= 0x80;
             query[5] ^= 0x04;
-            
+
             write(client_socket_fd, query, header->size);
-            
+
             close(server_socket_fd);
-            close(client_socket_fd);           
+            close(client_socket_fd);
             continue;
         }
 
@@ -151,6 +151,7 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
     }
 
     uint8_t* buffer = (uint8_t*)malloc(sizeof(*buffer) * 2);
+    assert(buffer);
 
     int bytes_read = 0;
     while (bytes_read != HEADER_SIZE_LENGTH)
@@ -158,9 +159,10 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
 
     uint16_t size = ntohs(*((uint16_t*)buffer));
     buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * MAX_MSG_SIZE);
+    assert(buffer);
 
     while (bytes_read < size) {
-	bytes_read += read(*new_socket, buffer + bytes_read, MAX_MSG_SIZE);
+        bytes_read += read(*new_socket, buffer + bytes_read, MAX_MSG_SIZE);
     }
     return buffer;
 }
@@ -233,10 +235,8 @@ char* get_time() {
     time_t timer = time(NULL);
     struct tm* tm_info = localtime(&timer);
     char* timestamp = (char*)malloc(sizeof(*timestamp) * (TIMESTAMP_LEN + 1));
+    assert(timestamp);
 
     strftime(timestamp, TIMESTAMP_LEN + 1, "%FT%T%z", tm_info);
     return timestamp;
 }
-
-
-
