@@ -18,10 +18,12 @@
 #define MAX_MSG_SIZE 512
 #define QUAD_A 28
 #define NUM_BYTES_HEADER 14
+#define QR_POS 4
+#define RCODE_POS 5
 
 
 /*
-Get the query from the client, forwards in to the upstream server, and 
+Get the query from the client, forwards in to the upstream server, and
 relays the response back to the client. Keeps logs throughout the process.
 */
 int main(int argc, char* argv[]) {
@@ -45,43 +47,42 @@ int main(int argc, char* argv[]) {
         header = get_header((uint16_t*)query, &pos);
         question = get_question(query, &pos);
 
-        printf("%s\n", question->q_name);
-
         server_socket_fd = get_server_socket(argv[1], argv[2]);
         print_log(log_file, QUERY, question, NULL);
 
         if (question->q_type != QUAD_A) {
             print_log(log_file, "unimplemented", NULL, NULL);
-            query[5] = query[5] | 4;
+            query[QR_POS] &= 0x00;
+            query[QR_POS] ^= 0x80;
+            query[5] ^= 0x04;
             write(client_socket_fd, query, header->size);
             close(server_socket_fd);
             close(client_socket_fd);
             continue;
         }
 
-        printf("header size %u\n", header->size);
         assert(write(server_socket_fd, query, header->size) == header->size);
 
         uint16_t bytes_read = read(server_socket_fd, buffer, MAX_MSG_SIZE);
-        printf("bytes %u\n", bytes_read);
+
         send(client_socket_fd, buffer, bytes_read, 0);
 
-	temp_pos = 0;
+        temp_pos = 0;
         header = get_header((uint16_t*)buffer, &temp_pos);
 
-	if (!header->an_count)
+        if (!header->an_count)
             continue;
 
         answer_t* answer = get_answer((uint16_t*)(buffer + pos));
         if (answer->type == QUAD_A) {
             print_log(log_file, RESPONSE, question, answer);
         }
-	else {
-	    continue;
-	}
-        
-	close(server_socket_fd);
-	close(client_socket_fd);
+        else {
+            continue;
+        }
+
+        close(server_socket_fd);
+        close(client_socket_fd);
 
     }
     return 0;
@@ -151,11 +152,9 @@ uint8_t* get_query(int socket_fd, int* new_socket) {
 
     int bytes_read = 2;
     uint16_t size = ntohs(*((uint16_t*)buffer));
-    printf("size %u\n", size);
     buffer = (uint8_t*)realloc(buffer, sizeof(*buffer) * size);
 
     while (bytes_read != size) {
-        printf("%d ", bytes_read);
         bytes_read += read(*new_socket, buffer + bytes_read, size - bytes_read);
     }
     return buffer;
@@ -184,7 +183,7 @@ int get_server_socket(char* nodename, char* server_port) {
         exit(EXIT_FAILURE);
     }
 
-    printf("connection %d \n", connect(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen));
+    connect(socket_fd, servinfo->ai_addr, servinfo->ai_addrlen);
 
     freeaddrinfo(servinfo);
     return socket_fd;
@@ -233,5 +232,6 @@ char* get_time() {
     strftime(timestamp, TIMESTAMP_LEN + 1, "%FT%T%z", tm_info);
     return timestamp;
 }
+
 
 
